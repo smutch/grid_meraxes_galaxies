@@ -32,6 +32,7 @@ std::vector<Galaxy> read_meraxes(const std::string fname) {
   for (int core=0; core < 8; ++core) {
       auto dataset = file.openDataSet(fmt::format("/Snap100/Core{}/Galaxies", core));
       dataset.read(&galaxies[n_galaxies], galaxy_type);
+      n_galaxies += dataset.getSpace().getSimpleExtentNpoints();
   }
 
   return galaxies;
