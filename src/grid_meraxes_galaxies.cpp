@@ -9,25 +9,26 @@ struct Galaxy {
   float StellarMass;
 };
 
-double read_meraxes(const std::string fname, const int snapshot, std::vector<Galaxy> &galaxies) {
+auto read_meraxes(const std::string &fname, const int snapshot,
+                  std::vector<Galaxy> &galaxies) -> double {
   H5::H5File file(fname, H5F_ACC_RDONLY);
 
   int n_cores = 0;
   {
-      auto attr = file.openAttribute("NCores");
-      attr.read(attr.getDataType(), &n_cores);
+    auto attr = file.openAttribute("NCores");
+    attr.read(attr.getDataType(), &n_cores);
   }
 
   double box_size = 0.0;
   {
-      auto attr = file.openGroup("InputParams").openAttribute("BoxSize");
-      attr.read(attr.getDataType(), &box_size);
+    auto attr = file.openGroup("InputParams").openAttribute("BoxSize");
+    attr.read(attr.getDataType(), &box_size);
   }
 
   size_t total_n_galaxies = 0;
   for (int core = 0; core < n_cores; ++core) {
-    auto dataset =
-        file.openDataSet(fmt::format("/Snap{:03d}/Core{}/Galaxies", snapshot, core));
+    auto dataset = file.openDataSet(
+        fmt::format("/Snap{:03d}/Core{}/Galaxies", snapshot, core));
     total_n_galaxies += dataset.getSpace().getSimpleExtentNpoints();
   }
 
@@ -43,8 +44,8 @@ double read_meraxes(const std::string fname, const int snapshot, std::vector<Gal
 
   size_t n_galaxies = 0;
   for (int core = 0; core < n_cores; ++core) {
-    auto dataset =
-        file.openDataSet(fmt::format("/Snap{:03d}/Core{}/Galaxies", snapshot, core));
+    auto dataset = file.openDataSet(
+        fmt::format("/Snap{:03d}/Core{}/Galaxies", snapshot, core));
     dataset.read(&galaxies[n_galaxies], galaxy_type);
     n_galaxies += dataset.getSpace().getSimpleExtentNpoints();
   }
@@ -68,31 +69,35 @@ public:
     data.assign(n_cell, 0.0);
   };
 
-  constexpr size_t index(const size_t i, const size_t j, const size_t k) {
+  constexpr auto index(const size_t i, const size_t j, const size_t k)
+      -> size_t {
     return k + dim[1] * (j + dim[0] * i);
   }
 
-  double at(const size_t i, const size_t j, const size_t k) {
+  auto at(const size_t i, const size_t j, const size_t k) -> double {
     return data.at(index(i, j, k));
   }
 
-  void assign_CIC(const float pos[3], float value) {
+  void assign_CIC(const float pos[3], const float value) {
     // Workout the CIC coefficients (taken from SWIFT)
     auto i = (int)(fac[0] * pos[0]);
-    if (i >= dim[0])
+    if (i >= dim[0]) {
       i = dim[0] - 1;
+    }
     const double dx = fac[0] * pos[0] - i;
     const double tx = 1. - dx;
 
     auto j = (int)(fac[1] * pos[1]);
-    if (j >= dim[1])
+    if (j >= dim[1]) {
       j = dim[1] - 1;
+    }
     const double dy = fac[1] * pos[1] - j;
     const double ty = 1. - dy;
 
     int k = (int)(fac[2] * pos[2]);
-    if (k >= dim[2])
+    if (k >= dim[2]) {
       k = dim[2] - 1;
+    }
     const double dz = fac[2] * pos[2] - k;
     const double tz = 1. - dz;
 
@@ -110,7 +115,7 @@ public:
   }
 };
 
-int main(int argc, char *argv[]) {
+auto main(int argc, char *argv[]) -> int {
 
   fmt::print("Reading galaxies...");
   std::cout.flush();
@@ -118,7 +123,8 @@ int main(int argc, char *argv[]) {
   std::vector<Galaxy> galaxies;
   auto box_size =
       read_meraxes("/home/smutch/freddos/meraxes/mhysa_paper/tiamat_runs/"
-                   "smf_only/the_bathroom_sink/single_run/output/meraxes.hdf5", 100, galaxies);
+                   "smf_only/the_bathroom_sink/single_run/output/meraxes.hdf5",
+                   100, galaxies);
   size_t n_galaxies = galaxies.size();
 
   fmt::print(" done\n");
@@ -138,7 +144,8 @@ int main(int argc, char *argv[]) {
   fmt::print("Assigning galaxies to grid (CIC)...");
   std::cout.flush();
 
-#pragma omp parallel for shared(grid, galaxies) private(n_galaxies)
+#pragma omp parallel for default(none)                                         \
+    shared(grid, galaxies) private(n_galaxies)
   for (int ii = 0; ii < n_galaxies; ++ii) {
     grid.assign_CIC(galaxies[ii].Pos, galaxies[ii].StellarMass);
   }
@@ -147,3 +154,5 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+
+// vim: set shiftwidth=2 tabstop=2:
