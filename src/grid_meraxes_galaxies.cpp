@@ -9,17 +9,29 @@ struct Galaxy {
   float StellarMass;
 };
 
-std::vector<Galaxy> read_meraxes(const std::string fname) {
+double read_meraxes(const std::string fname, const int snapshot, std::vector<Galaxy> &galaxies) {
   H5::H5File file(fname, H5F_ACC_RDONLY);
 
+  int n_cores = 0;
+  {
+      auto attr = file.openAttribute("NCores");
+      attr.read(attr.getDataType(), &n_cores);
+  }
+
+  double box_size = 0.0;
+  {
+      auto attr = file.openGroup("InputParams").openAttribute("BoxSize");
+      attr.read(attr.getDataType(), &box_size);
+  }
+
   size_t total_n_galaxies = 0;
-  for (int core = 0; core < 8; ++core) {
+  for (int core = 0; core < n_cores; ++core) {
     auto dataset =
-        file.openDataSet(fmt::format("/Snap100/Core{}/Galaxies", core));
+        file.openDataSet(fmt::format("/Snap{:03d}/Core{}/Galaxies", snapshot, core));
     total_n_galaxies += dataset.getSpace().getSimpleExtentNpoints();
   }
 
-  std::vector<Galaxy> galaxies(total_n_galaxies);
+  galaxies.resize(total_n_galaxies);
   H5::CompType galaxy_type(sizeof(Galaxy));
   hsize_t size_[] = {3};
 
@@ -30,14 +42,14 @@ std::vector<Galaxy> read_meraxes(const std::string fname) {
                            H5::PredType::NATIVE_FLOAT);
 
   size_t n_galaxies = 0;
-  for (int core = 0; core < 8; ++core) {
+  for (int core = 0; core < n_cores; ++core) {
     auto dataset =
-        file.openDataSet(fmt::format("/Snap100/Core{}/Galaxies", core));
+        file.openDataSet(fmt::format("/Snap{:03d}/Core{}/Galaxies", snapshot, core));
     dataset.read(&galaxies[n_galaxies], galaxy_type);
     n_galaxies += dataset.getSpace().getSimpleExtentNpoints();
   }
 
-  return galaxies;
+  return box_size;
 }
 
 class Grid {
@@ -103,9 +115,10 @@ int main(int argc, char *argv[]) {
   fmt::print("Reading galaxies...");
   std::cout.flush();
 
-  auto galaxies =
+  std::vector<Galaxy> galaxies;
+  auto box_size =
       read_meraxes("/home/smutch/freddos/meraxes/mhysa_paper/tiamat_runs/"
-                   "smf_only/the_bathroom_sink/single_run/output/meraxes.hdf5");
+                   "smf_only/the_bathroom_sink/single_run/output/meraxes.hdf5", 100, galaxies);
   size_t n_galaxies = galaxies.size();
 
   fmt::print(" done\n");
@@ -120,7 +133,7 @@ int main(int argc, char *argv[]) {
   //   }
   // }
 
-  Grid grid({128, 128, 128}, {67.8, 67.8, 67.8});
+  Grid grid({128, 128, 128}, {box_size, box_size, box_size});
 
   fmt::print("Assigning galaxies to grid (CIC)...");
   std::cout.flush();
