@@ -113,6 +113,25 @@ public:
       data[index(i + 1, j + 1, k + 1)] += value * dx * dy * dz;
     }
   }
+
+  void write(const std::string &fname) {
+    H5::H5File file(fname, H5F_ACC_TRUNC);
+
+    hsize_t size_[] = {3};
+
+    std::array<int, 3> data = {0};
+    for (int ii = 0; ii < 3; ++ii) {
+      data[ii] = this->dim[ii];
+    }
+    file.createAttribute("dim", H5::PredType::NATIVE_INT,
+                         H5::DataSpace(1, size_))
+        .write(H5::PredType::NATIVE_INT, data.data());
+
+    size_[0] = this->n_cell;
+    file.createDataSet("StellarMass", H5::PredType::NATIVE_DOUBLE,
+                       H5::DataSpace(1, size_))
+        .write(this->data.data(), H5::PredType::NATIVE_DOUBLE);
+  }
 };
 
 auto main(int argc, char *argv[]) -> int {
@@ -149,6 +168,15 @@ auto main(int argc, char *argv[]) -> int {
   for (int ii = 0; ii < n_galaxies; ++ii) {
     grid.assign_CIC(galaxies[ii].Pos, galaxies[ii].StellarMass);
   }
+
+  fmt::print(" done\n");
+
+  fmt::print("Creating output...");
+  std::cout.flush();
+
+  grid.write(
+      "/home/smutch/freddos/meraxes/mhysa_paper/tiamat_runs/smf_only/"
+      "the_bathroom_sink/single_run/output/stellar_mass_grid-snap100.h5");
 
   fmt::print(" done\n");
 
