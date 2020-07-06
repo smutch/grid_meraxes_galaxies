@@ -34,7 +34,7 @@ auto read_meraxes(const std::string &fname, const int snapshot,
 
   galaxies.resize(total_n_galaxies);
   H5::CompType galaxy_type(sizeof(Galaxy));
-  hsize_t size_[] = {3};
+  const hsize_t size_[] = {3};
 
   galaxy_type.insertMember(
       "Pos", HOFFSET(Galaxy, Pos),
@@ -140,11 +140,11 @@ auto main(int argc, char *argv[]) -> int {
   std::cout.flush();
 
   std::vector<Galaxy> galaxies;
-  auto box_size =
+  const auto box_size =
       read_meraxes("/home/smutch/freddos/meraxes/mhysa_paper/tiamat_runs/"
                    "smf_only/the_bathroom_sink/single_run/output/meraxes.hdf5",
                    100, galaxies);
-  size_t n_galaxies = galaxies.size();
+  const size_t n_galaxies = galaxies.size();
 
   fmt::print(" done\n");
   std::cout.flush();
@@ -164,7 +164,7 @@ auto main(int argc, char *argv[]) -> int {
   std::cout.flush();
 
 #pragma omp parallel for default(none)                                         \
-    shared(grid, galaxies) private(n_galaxies)
+    shared(grid, galaxies) firstprivate(n_galaxies)
   for (int ii = 0; ii < n_galaxies; ++ii) {
     grid.assign_CIC(galaxies[ii].Pos, galaxies[ii].StellarMass);
   }
