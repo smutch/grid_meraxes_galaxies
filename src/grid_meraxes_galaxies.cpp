@@ -3,6 +3,7 @@
 #include <fmt/ostream.h>
 #include <iostream>
 #include <string>
+#include <boost/program_options.hpp>
 
 struct Galaxy {
   float Pos[3];
@@ -136,14 +137,35 @@ public:
 
 auto main(int argc, char *argv[]) -> int {
 
+  namespace po = boost::program_options;
+
+  po::options_description desc("Allowed options");
+  desc.add_options()("help,h", "produce help message")
+                    ("input", po::value<std::string>(), "input meraxes file")
+                    ("output", po::value<std::string>(), "output grid file")
+                    ("dim", po::value<size_t>()->default_value(128), "grid dimensionality");
+
+  po::positional_options_description pos_desc;
+  pos_desc.add("input", 1).add("output", 1).add("dim", 1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, argv).options(desc).positional(pos_desc).run(), vm);
+  po::notify(vm);
+
+  if (vm.count("help") || (vm.size() == 0)) {
+    fmt::print("Usage:\n  grid_meraxes_galaxies [input meraxes file] [output grid file] [dim]\n\n");
+    fmt::print("{}", desc);
+    return 1;
+  }
+
   fmt::print("Reading galaxies...");
   std::cout.flush();
 
   std::vector<Galaxy> galaxies;
   const auto box_size =
-      read_meraxes("/home/smutch/freddos/meraxes/mhysa_paper/tiamat_runs/"
-                   "smf_only/the_bathroom_sink/single_run/output/meraxes.hdf5",
-                   100, galaxies);
+      // read_meraxes("/home/smutch/freddos/meraxes/mhysa_paper/tiamat_runs/"
+                   // "smf_only/the_bathroom_sink/single_run/output/meraxes.hdf5",
+      read_meraxes(vm["input"].as<std::string>(), 100, galaxies);
   const size_t n_galaxies = galaxies.size();
 
   fmt::print(" done\n");
@@ -158,7 +180,10 @@ auto main(int argc, char *argv[]) -> int {
   //   }
   // }
 
-  Grid grid({128, 128, 128}, {box_size, box_size, box_size});
+  std::array<size_t, 3> dim;
+  dim.fill(vm["dim"].as<size_t>());
+  fmt::print("dim = {}\n", fmt::join(dim, ","));
+  Grid grid(dim, {box_size, box_size, box_size});
 
   fmt::print("Assigning galaxies to grid (CIC)...");
   std::cout.flush();
@@ -174,9 +199,7 @@ auto main(int argc, char *argv[]) -> int {
   fmt::print("Creating output...");
   std::cout.flush();
 
-  grid.write(
-      "/home/smutch/freddos/meraxes/mhysa_paper/tiamat_runs/smf_only/"
-      "the_bathroom_sink/single_run/output/stellar_mass_grid-snap100.h5");
+  grid.write(vm["output"].as<std::string>());
 
   fmt::print(" done\n");
 
