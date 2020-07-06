@@ -1,10 +1,10 @@
-#include <ProgressBar.hpp>
 #include <H5Cpp.h>
+#include <ProgressBar.hpp>
+#include <boost/program_options.hpp>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <iostream>
 #include <string>
-#include <boost/program_options.hpp>
 
 struct Galaxy {
   std::array<float, 3> Pos;
@@ -120,23 +120,30 @@ public:
     }
   }
 
-  void write(const std::string &fname) {
-    H5::H5File file(fname, H5F_ACC_TRUNC);
-
-    std::array<hsize_t, 1> size_ = {3};
-
-    std::array<int, 3> data = {0};
-    for (int ii = 0; ii < 3; ++ii) {
-      data[ii] = this->dim[ii];
+  void write(const std::string &fname, const int snapshot) {
+    H5::H5File file;
+    try {
+      file = H5::H5File(fname, H5F_ACC_RDWR);
+    } catch (H5::FileIException &e) {
+      file = H5::H5File(fname, H5F_ACC_CREAT);
     }
-    file.createAttribute("dim", H5::PredType::NATIVE_INT,
-                         H5::DataSpace(1, size_.data()))
-        .write(H5::PredType::NATIVE_INT, data.data());
 
-    size_[0] = this->n_cell;
-    file.createDataSet("StellarMass", H5::PredType::NATIVE_DOUBLE,
+    std::array<hsize_t, 1> size_ = {n_cell};
+
+    auto ds = file.createDataSet(fmt::format("Snap{:03d}", snapshot),
+                                 H5::PredType::NATIVE_DOUBLE,
+                                 H5::DataSpace(1, size_.data()));
+    ds.write(this->data.data(), H5::PredType::NATIVE_DOUBLE);
+
+    std::array<int, 3> h5dims;
+    for (int ii = 0; ii < 3; ++ii) {
+      h5dims[ii] = dim[ii];
+    }
+
+    size_[0] = 3;
+    ds.createAttribute("dim", H5::PredType::NATIVE_INT,
                        H5::DataSpace(1, size_.data()))
-        .write(this->data.data(), H5::PredType::NATIVE_DOUBLE);
+        .write(H5::PredType::NATIVE_INT, h5dims.data());
   }
 };
 
@@ -144,21 +151,28 @@ auto main(int argc, char *argv[]) -> int {
 
   namespace po = boost::program_options;
 
+  int snapshot = -1;
   po::options_description desc("Allowed options");
-  desc.add_options()("help,h", "produce help message")
-                    ("input", po::value<std::string>(), "input meraxes file")
-                    ("output", po::value<std::string>(), "output grid file")
-                    ("dim", po::value<size_t>()->default_value(128), "grid dimensionality");
+  desc.add_options()("help,h", "produce help message")(
+      "input", "input meraxes file")("snapshot", po::value<int>(&snapshot),
+                                     "input snapshot")(
+      "output", "output grid file")("dim", po::value<size_t>(),
+                                    "grid dimensionality");
 
   po::positional_options_description pos_desc;
-  pos_desc.add("input", 1).add("output", 1).add("dim", 1);
+  pos_desc.add("input", 1).add("snapshot", 1).add("output", 1).add("dim", 1);
 
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).options(desc).positional(pos_desc).run(), vm);
+  po::store(po::command_line_parser(argc, argv)
+                .options(desc)
+                .positional(pos_desc)
+                .run(),
+            vm);
   po::notify(vm);
 
   if (vm.count("help") || (vm.size() == 0)) {
-    fmt::print("Usage:\n  grid_meraxes_galaxies [input meraxes file] [output grid file] [dim]\n\n");
+    fmt::print("Usage:\n  grid_meraxes_galaxies [input meraxes file] "
+               "[snapshot] [output grid file] [dim]\n\n");
     fmt::print("{}", desc);
     return 1;
   }
@@ -167,7 +181,7 @@ auto main(int argc, char *argv[]) -> int {
 
   std::vector<Galaxy> galaxies;
   const auto box_size =
-      read_meraxes(vm["input"].as<std::string>(), 100, galaxies);
+      read_meraxes(vm["input"].as<std::string>(), snapshot, galaxies);
   const size_t n_galaxies = galaxies.size();
 
   std::array<size_t, 3> dim;
@@ -176,15 +190,15 @@ auto main(int argc, char *argv[]) -> int {
 
   fmt::print("Assigning galaxies to grid (CIC).\n");
 
-#pragma omp parallel for default(none)                                         \
-    shared(grid, galaxies) firstprivate(n_galaxies)
+#pragma omp parallel for default(none) shared(grid, galaxies)                  \
+    firstprivate(n_galaxies)
   for (int ii = 0; ii < n_galaxies; ++ii) {
     grid.assign_CIC(galaxies[ii].Pos, galaxies[ii].StellarMass);
   }
 
   fmt::print("Creating output.\n");
 
-  grid.write(vm["output"].as<std::string>());
+  grid.write(vm["output"].as<std::string>(), snapshot);
 
   return 0;
 }
