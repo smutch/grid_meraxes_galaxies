@@ -6,7 +6,7 @@
 #include <boost/program_options.hpp>
 
 struct Galaxy {
-  float Pos[3];
+  std::array<float, 3> Pos;
   float StellarMass;
 };
 
@@ -35,11 +35,11 @@ auto read_meraxes(const std::string &fname, const int snapshot,
 
   galaxies.resize(total_n_galaxies);
   H5::CompType galaxy_type(sizeof(Galaxy));
-  const hsize_t size_[] = {3};
+  const std::array<hsize_t, 1> size_ = {3};
 
   galaxy_type.insertMember(
       "Pos", HOFFSET(Galaxy, Pos),
-      H5::ArrayType(H5::DataType(H5::PredType::NATIVE_FLOAT), 1, size_));
+      H5::ArrayType(H5::DataType(H5::PredType::NATIVE_FLOAT), 1, size_.data()));
   galaxy_type.insertMember("StellarMass", HOFFSET(Galaxy, StellarMass),
                            H5::PredType::NATIVE_FLOAT);
 
@@ -79,7 +79,7 @@ public:
     return data.at(index(i, j, k));
   }
 
-  void assign_CIC(const float pos[3], const float value) {
+  void assign_CIC(const std::array<float, 3> pos, const float value) {
     // Workout the CIC coefficients (taken from SWIFT)
     auto i = (int)(fac[0] * pos[0]);
     if (i >= dim[0]) {
@@ -118,19 +118,19 @@ public:
   void write(const std::string &fname) {
     H5::H5File file(fname, H5F_ACC_TRUNC);
 
-    hsize_t size_[] = {3};
+    std::array<hsize_t, 1> size_ = {3};
 
     std::array<int, 3> data = {0};
     for (int ii = 0; ii < 3; ++ii) {
       data[ii] = this->dim[ii];
     }
     file.createAttribute("dim", H5::PredType::NATIVE_INT,
-                         H5::DataSpace(1, size_))
+                         H5::DataSpace(1, size_.data()))
         .write(H5::PredType::NATIVE_INT, data.data());
 
     size_[0] = this->n_cell;
     file.createDataSet("StellarMass", H5::PredType::NATIVE_DOUBLE,
-                       H5::DataSpace(1, size_))
+                       H5::DataSpace(1, size_.data()))
         .write(this->data.data(), H5::PredType::NATIVE_DOUBLE);
   }
 };
