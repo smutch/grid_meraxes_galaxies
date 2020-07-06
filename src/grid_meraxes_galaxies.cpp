@@ -1,3 +1,4 @@
+#include <ProgressBar.hpp>
 #include <H5Cpp.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
@@ -44,12 +45,16 @@ auto read_meraxes(const std::string &fname, const int snapshot,
                            H5::PredType::NATIVE_FLOAT);
 
   size_t n_galaxies = 0;
-  for (int core = 0; core < n_cores; ++core) {
+  progresscpp::ProgressBar progress_bar(n_cores, 70, '#', '-');
+  for (int core = 0; core < n_cores; ++core, ++progress_bar) {
     auto dataset = file.openDataSet(
         fmt::format("/Snap{:03d}/Core{}/Galaxies", snapshot, core));
     dataset.read(&galaxies[n_galaxies], galaxy_type);
     n_galaxies += dataset.getSpace().getSimpleExtentNpoints();
+    progress_bar.display();
   }
+
+  progress_bar.done();
 
   return box_size;
 }
@@ -158,35 +163,18 @@ auto main(int argc, char *argv[]) -> int {
     return 1;
   }
 
-  fmt::print("Reading galaxies...");
-  std::cout.flush();
+  fmt::print("Reading galaxies...\n");
 
   std::vector<Galaxy> galaxies;
   const auto box_size =
-      // read_meraxes("/home/smutch/freddos/meraxes/mhysa_paper/tiamat_runs/"
-                   // "smf_only/the_bathroom_sink/single_run/output/meraxes.hdf5",
       read_meraxes(vm["input"].as<std::string>(), 100, galaxies);
   const size_t n_galaxies = galaxies.size();
 
-  fmt::print(" done\n");
-  std::cout.flush();
-
-  // {
-  //   int ii = 0;
-  //   for (const auto galaxy : galaxies) {
-  //     fmt::print("galaxy[{}] = ([{}], {})\n", ii, fmt::join(galaxy.Pos, ","),
-  //     galaxy.StellarMass); ii++; if (ii == 10)
-  //       break;
-  //   }
-  // }
-
   std::array<size_t, 3> dim;
   dim.fill(vm["dim"].as<size_t>());
-  fmt::print("dim = {}\n", fmt::join(dim, ","));
   Grid grid(dim, {box_size, box_size, box_size});
 
-  fmt::print("Assigning galaxies to grid (CIC)...");
-  std::cout.flush();
+  fmt::print("Assigning galaxies to grid (CIC).\n");
 
 #pragma omp parallel for default(none)                                         \
     shared(grid, galaxies) firstprivate(n_galaxies)
@@ -194,14 +182,9 @@ auto main(int argc, char *argv[]) -> int {
     grid.assign_CIC(galaxies[ii].Pos, galaxies[ii].StellarMass);
   }
 
-  fmt::print(" done\n");
-
-  fmt::print("Creating output...");
-  std::cout.flush();
+  fmt::print("Creating output.\n");
 
   grid.write(vm["output"].as<std::string>());
-
-  fmt::print(" done\n");
 
   return 0;
 }

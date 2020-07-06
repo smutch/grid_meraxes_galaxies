@@ -33,3 +33,5 @@ target_include_directories(grid_meraxes_galaxies PRIVATE ${HDF5_INCLUDE_DIRS})
 
 find_package(Boost REQUIRED COMPONENTS program_options)
 target_link_libraries(grid_meraxes_galaxies PRIVATE fmt Boost::program_options)
+
+target_include_directories(grid_meraxes_galaxies PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vendor)
