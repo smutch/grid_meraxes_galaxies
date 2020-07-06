@@ -24,10 +24,10 @@ set_property(TARGET grid_meraxes_galaxies PROPERTY CXX_STANDARD 20)
 add_subdirectory(vendor/fmt EXCLUDE_FROM_ALL)
 target_link_libraries(grid_meraxes_galaxies PRIVATE fmt::fmt)
 
-find_package(OpenMP REQUIRED)
+find_package(OpenMP)
 target_link_libraries(grid_meraxes_galaxies PRIVATE OpenMP::OpenMP_CXX)
 
-find_package(HDF5 COMPONENTS CXX)
+find_package(HDF5 REQUIRED COMPONENTS CXX)
 target_link_libraries(grid_meraxes_galaxies PRIVATE ${HDF5_CXX_LIBRARIES})
 target_include_directories(grid_meraxes_galaxies PRIVATE ${HDF5_INCLUDE_DIRS})
 
