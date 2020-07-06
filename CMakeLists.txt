@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.2)
 project(grid_meraxes_galaxies)
 
 # output paths
@@ -30,3 +30,6 @@ target_link_libraries(grid_meraxes_galaxies PRIVATE OpenMP::OpenMP_CXX)
 find_package(HDF5 COMPONENTS CXX)
 target_link_libraries(grid_meraxes_galaxies PRIVATE ${HDF5_CXX_LIBRARIES})
 target_include_directories(grid_meraxes_galaxies PRIVATE ${HDF5_INCLUDE_DIRS})
+
+find_package(Boost REQUIRED COMPONENTS program_options)
+target_link_libraries(grid_meraxes_galaxies PRIVATE fmt Boost::program_options)
