@@ -72,7 +72,7 @@ public:
 
   constexpr auto index(const size_t i, const size_t j, const size_t k)
       -> size_t {
-    return k + dim[1] * (j + dim[0] * i);
+    return (k % dim[2]) + dim[1] * ((j % dim[1]) + dim[0] * (i % dim[0]));
   }
 
   auto at(const size_t i, const size_t j, const size_t k) -> double {
