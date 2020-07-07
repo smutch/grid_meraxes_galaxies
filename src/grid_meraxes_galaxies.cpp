@@ -143,9 +143,15 @@ public:
       size_[ii] = (hsize_t)dim[ii];
     }
 
+    auto plist = H5::DSetCreatPropList();
+    size_[0] = 1;
+    plist.setChunk(3, size_.data());
+    plist.setDeflate(7);
+
+    size_[0] = (hsize_t)dim[0];
     auto ds = file.createDataSet(fmt::format("Snap{:03d}", snapshot),
                                  H5::PredType::NATIVE_DOUBLE,
-                                 H5::DataSpace(3, size_.data()));
+                                 H5::DataSpace(3, size_.data()), plist);
     ds.write(data.data(), H5::PredType::NATIVE_DOUBLE);
 
     std::array<int, 3> h5dims;
@@ -157,6 +163,14 @@ public:
     ds.createAttribute("dim", H5::PredType::NATIVE_INT,
                        H5::DataSpace(1, size_.data()))
         .write(H5::PredType::NATIVE_INT, h5dims.data());
+    ds.createAttribute("box_size", H5::PredType::NATIVE_DOUBLE,
+                       H5::DataSpace(1, size_.data()))
+        .write(H5::PredType::NATIVE_DOUBLE, box_size.data());
+
+    const std::string units = "log10(M/Msun)";
+    const H5::StrType str_type(H5::PredType::C_S1, units.length());
+    ds.createAttribute("units", str_type, H5::DataSpace())
+        .write(str_type, units.data());
   }
 
   void update_units() {
