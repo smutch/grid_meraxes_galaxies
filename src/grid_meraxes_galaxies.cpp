@@ -162,7 +162,8 @@ public:
     size_[0] = 3;
     auto box_size = this->box_size;
     auto hubble_h = this->hubble_h;
-    std::for_each(box_size.begin(), box_size.end(), [hubble_h](auto &v){return v /= hubble_h;});
+    std::for_each(box_size.begin(), box_size.end(),
+                  [hubble_h](auto &v) { return v /= hubble_h; });
     ds.createAttribute("dim", H5::PredType::NATIVE_INT,
                        H5::DataSpace(1, size_.data()))
         .write(H5::PredType::NATIVE_INT, h5dims.data());
@@ -192,12 +193,12 @@ auto main(int argc, char *argv[]) -> int {
 
   int snapshot = -1;
   po::options_description desc("Allowed options");
-  desc.add_options()("help,h", "produce help message")("input",
-                                                       "input meraxes file")(
-      "snapshot", po::value<int>(&snapshot),
-      "input snapshot")("property", "galaxy property to grid")(
-      "output,o",
-      "output grid file (default {input file directory}/{prop}_grids.h5)")(
+  desc.add_options()("help,h", "produce help message")(
+      "input", po::value<std::string>(), "input meraxes file")(
+      "snapshot", po::value<int>(&snapshot), "input snapshot")(
+      "property", po::value<std::string>(), "galaxy property to grid")(
+      "output,o", po::value<std::string>(),
+      "output grid file\n\t(default {input file directory}/{prop}_grids.h5)")(
       "dim", po::value<size_t>(), "grid dimensionality");
 
   po::positional_options_description pos_desc;
@@ -212,7 +213,7 @@ auto main(int argc, char *argv[]) -> int {
   po::notify(vm);
 
   if (vm.count("help") || (vm.size() == 0)) {
-    fmt::print("Usage: grid_meraxes_galaxies [input meraxes file] "
+    fmt::print("Usage: grid_meraxes_galaxies [options] [input] "
                "[snapshot] [property] [dim]\n\n");
     fmt::print("{}", desc);
     return 1;
