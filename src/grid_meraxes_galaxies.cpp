@@ -160,6 +160,9 @@ public:
     }
 
     size_[0] = 3;
+    auto box_size = this->box_size;
+    auto hubble_h = this->hubble_h;
+    std::for_each(box_size.begin(), box_size.end(), [hubble_h](auto &v){return v /= hubble_h;});
     ds.createAttribute("dim", H5::PredType::NATIVE_INT,
                        H5::DataSpace(1, size_.data()))
         .write(H5::PredType::NATIVE_INT, h5dims.data());
