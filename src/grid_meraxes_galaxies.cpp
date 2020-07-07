@@ -48,7 +48,7 @@ auto read_meraxes(const std::string &fname, const int snapshot,
   galaxy_type.insertMember(
       "Pos", HOFFSET(Galaxy, Pos),
       H5::ArrayType(H5::DataType(H5::PredType::NATIVE_FLOAT), 1, size_.data()));
-  galaxy_type.insertMember("StellarMass", HOFFSET(Galaxy, StellarMass),
+  galaxy_type.insertMember(prop, HOFFSET(Galaxy, value),
                            H5::PredType::NATIVE_FLOAT);
 
   size_t n_galaxies = 0;
@@ -132,17 +132,21 @@ public:
   void write(const std::string &fname, const int snapshot) {
     H5::H5File file;
     try {
+      H5::Exception::dontPrint();
       file = H5::H5File(fname, H5F_ACC_RDWR);
-    } catch (H5::FileIException &e) {
-      file = H5::H5File(fname, H5F_ACC_CREAT);
+    } catch (const H5::FileIException &) {
+      file = H5::H5File(fname, H5F_ACC_TRUNC);
     }
 
-    std::array<hsize_t, 1> size_ = {n_cell};
+    std::array<hsize_t, 3> size_;
+    for (int ii = 0; ii < 3; ++ii) {
+      size_[ii] = (hsize_t)dim[ii];
+    }
 
     auto ds = file.createDataSet(fmt::format("Snap{:03d}", snapshot),
                                  H5::PredType::NATIVE_DOUBLE,
-                                 H5::DataSpace(1, size_.data()));
-    ds.write(this->data.data(), H5::PredType::NATIVE_DOUBLE);
+                                 H5::DataSpace(3, size_.data()));
+    ds.write(data.data(), H5::PredType::NATIVE_DOUBLE);
 
     std::array<int, 3> h5dims;
     for (int ii = 0; ii < 3; ++ii) {
@@ -171,14 +175,16 @@ auto main(int argc, char *argv[]) -> int {
 
   int snapshot = -1;
   po::options_description desc("Allowed options");
-  desc.add_options()("help,h", "produce help message")(
-      "input", "input meraxes file")("snapshot", po::value<int>(&snapshot),
-                                     "input snapshot")(
-      "output", "output grid file")("dim", po::value<size_t>(),
-                                    "grid dimensionality");
+  desc.add_options()("help,h", "produce help message")("input",
+                                                       "input meraxes file")(
+      "snapshot", po::value<int>(&snapshot),
+      "input snapshot")("property", "galaxy property to grid")(
+      "output,o",
+      "output grid file (default {input file directory}/{prop}_grids.h5)")(
+      "dim", po::value<size_t>(), "grid dimensionality");
 
   po::positional_options_description pos_desc;
-  pos_desc.add("input", 1).add("snapshot", 1).add("output", 1).add("dim", 1);
+  pos_desc.add("input", 1).add("snapshot", 1).add("property", 1).add("dim", 1);
 
   po::variables_map vm;
   po::store(po::command_line_parser(argc, argv)
